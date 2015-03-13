@@ -42,6 +42,8 @@ using namespace std;
 
 #if __cplusplus >= 201103L 
 # define HAS_UNORDEREDMAP
+#elif defined(_LIBCPP_VERSION) && _LIBCPP_VERSION >=1100
+# define HAS_UNORDEREDMAP
 #elif defined(_MSC_VER) && _MSC_VER >= 1600
 # define HAS_UNORDEREDMAP
 #elif defined(__GXX_EXPERIMENTAL_CXX0X__)
@@ -1403,7 +1405,7 @@ class TScorer : public Scorer
 {
 private:
   double eta;
-  double mu;
+  // double mu; // unused
 public:
   TScorer(const Sentence &s_, const Dictionary &d_, Weights &ww_, double eta_, double mu_);
   virtual void uGradients(const VFloat *g, int pos, int fy, int ny);
@@ -1412,8 +1414,8 @@ public:
 
 
 TScorer::TScorer(const Sentence &s_, const Dictionary &d_, Weights &ww_, 
-                 double eta_, double mu_ )
-  : Scorer(s_,d_,ww_), eta(eta_), mu(mu_)
+                 double eta_, double /* mu_ */ )
+  : Scorer(s_,d_,ww_), eta(eta_) /*, mu(mu_)*/
 {
 }
 

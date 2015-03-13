@@ -42,6 +42,8 @@ using namespace std;
 
 #if __cplusplus >= 201103L 
 # define HAS_UNORDEREDMAP
+#elif defined(_LIBCPP_VERSION) && _LIBCPP_VERSION >=1100
+# define HAS_UNORDEREDMAP
 #elif defined(_MSC_VER) && _MSC_VER >= 1600
 # define HAS_UNORDEREDMAP
 #elif defined(__GXX_EXPERIMENTAL_CXX0X__)

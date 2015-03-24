@@ -73,22 +73,20 @@ using namespace std;
 class SvmSvrg
 {
 public:
-  SvmSvrg(int dim, double lambda, double eta0  = 0);
+  SvmSvrg(int dim, double lambda);
   void init(int imin,int imax);
   void renorm();
   double wnorm();
   double testOne(const SVector &x, double y, double *ploss, double *pnerr);
-  void trainOne(const SVector &x, double y, double eta,int i);
+  void trainOne(const SVector &x, double y,double eta,int i);
   void computeMu(int imin,int imax,const xvec_t &xp, const yvec_t &yp);
 public:
   void train(int imin, int imax,int m, double eta, const xvec_t &x, const yvec_t &y, const char *prefix = "");
   void test(int imin, int imax, const xvec_t &x, const yvec_t &y, const char *prefix = "");
 public:
   double evaluateEta(int imin, int imax, const xvec_t &x, const yvec_t &y, double eta);
-  void determineEta0(int imin, int imax, const xvec_t &x, const yvec_t &y);
 private:
   double  lambda;
-  double  eta0;
   FVector w;
   FVector wt;			// w tilde in svrg paper
   FVector mu;			// mu from same paper
@@ -101,8 +99,8 @@ private:
 };
 
 /// Constructor
-SvmSvrg::SvmSvrg(int dim, double lambda, double eta0)
-  : lambda(lambda), eta0(eta0), 
+SvmSvrg::SvmSvrg(int dim, double lambda)
+  : lambda(lambda), 
     w(dim), wt(dim), mu(dim),
     saved_dimin(0), saved_dimax(-1), wBias(0),wtBias(0),
     t(0)
@@ -249,34 +247,6 @@ SvmSvrg::evaluateEta(int imin, int imax, const xvec_t &xp, const yvec_t &yp, dou
   return cost;
 }
 
-void 
-SvmSvrg::determineEta0(int imin, int imax, const xvec_t &xp, const yvec_t &yp)
-{
-  const double factor = 2.0;
-  double loEta = 1;
-  double loCost = evaluateEta(imin, imax, xp, yp, loEta);
-  double hiEta = loEta * factor;
-  double hiCost = evaluateEta(imin, imax, xp, yp, hiEta);
-  if (loCost < hiCost)
-    while (loCost < hiCost)
-      {
-        hiEta = loEta;
-        hiCost = loCost;
-        loEta = hiEta / factor;
-        loCost = evaluateEta(imin, imax, xp, yp, loEta);
-      }
-  else if (hiCost < loCost)
-    while (hiCost < loCost)
-      {
-        loEta = hiEta;
-        loCost = hiCost;
-        hiEta = loEta * factor;
-        hiCost = evaluateEta(imin, imax, xp, yp, hiEta);
-      }
-  eta0 = loEta;
-  cout << "# Using eta0=" << eta0 << endl;
-}
-
 
 // --- Command line arguments
 
@@ -406,11 +376,12 @@ int main(int argc, const char **argv)
   svm.init(imin,imax);
   Timer timer;
   // determine eta0 using sample
-  int smin = 0;
-  int smax = imin + min(1000, imax);
-  timer.start();
+  // int smin = 0;
+  // int smax = imin + min(1000, imax);
+  // timer.start();
   // svm.determineEta0(smin, smax, xtrain, ytrain);
-  timer.stop();
+  // timer.stop();
+
   // train
   int m= (imax-imin+1) / 10;
   cout << "Using update freq m = "<< m << endl;

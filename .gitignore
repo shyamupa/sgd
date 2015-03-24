@@ -1,2 +1,11 @@
+crf/crfasgd
+crf/crfsgd
+svm/make_txt
+svm/prep_alpha
+svm/prep_rcv1
+svm/prep_webspam
+svm/svmasgd
+svm/svmsag
+svm/svmsgd
 bin
 data/

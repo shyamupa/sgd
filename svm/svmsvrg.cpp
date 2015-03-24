@@ -174,7 +174,7 @@ SvmSvrg::computeMu(int imin,int imax,const xvec_t &xp, const yvec_t &yp)
       mu.add(x,d);
       saved_d[i-saved_dimin]=d;
     }
-  mu.scale(imax-imin+1);
+  mu.scale(1.0/(imax-imin+1));
 }
 /// Perform a training epoch
 void 
@@ -182,10 +182,12 @@ SvmSvrg::train(int imin, int imax, int m, double eta, const xvec_t &xp, const yv
 {
   cout << prefix << "Training on [" << imin << ", " << imax << "]." << endl;
   assert(imin <= imax);
-  assert(eta0 > 0);
+  // assert(eta0 > 0);
   // compute Mu, also save f'(wt) for all i
   computeMu(imin,imax,xp,yp);
   w=wt.slice(0,wt.size()-1); 			// w_0 = w_t
+  cout << "norm " << wnorm() << endl;
+  cout << "decay " << (1-eta*lambda) << endl;
   uniform_int_generator generator(imin, imax);
   for (int i=0; i<m; i++)
     {
@@ -407,10 +409,10 @@ int main(int argc, const char **argv)
   int smin = 0;
   int smax = imin + min(1000, imax);
   timer.start();
-  svm.determineEta0(smin, smax, xtrain, ytrain);
+  // svm.determineEta0(smin, smax, xtrain, ytrain);
   timer.stop();
   // train
-  int m= (imax-imin+1) / 100;
+  int m= (imax-imin+1) / 10;
   cout << "Using update freq m = "<< m << endl;
 
   double eta=0.025;

@@ -85,6 +85,8 @@ public:
   void test(int imin, int imax, const xvec_t &x, const yvec_t &y, const char *prefix = "");
 public:
   double evaluateEta(int imin, int imax, const xvec_t &x, const yvec_t &y, double eta);
+  const char* dataFile;
+	
 private:
   double  lambda;
   FVector w;
@@ -96,6 +98,7 @@ private:
   double  wBias;
   double  wtBias;
   double  t;
+  int numGradEvals;
 };
 
 /// Constructor
@@ -103,7 +106,7 @@ SvmSvrg::SvmSvrg(int dim, double lambda)
   : lambda(lambda), 
     w(dim), wt(dim), mu(dim),
     saved_dimin(0), saved_dimax(-1), wBias(0),wtBias(0),
-    t(0)
+    t(0), numGradEvals(0), dataFile("svrg.dat")
 {
 }
 
@@ -147,6 +150,7 @@ SvmSvrg::trainOne(const SVector &x, double y, double eta, int i)
       w.add(x, - eta * dt);	// first correction term
       w.add(mu,eta);		// mu term
     }
+  numGradEvals++;
   // same for the bias
 #if BIAS
   double etab = eta * 0.01;
@@ -171,6 +175,7 @@ SvmSvrg::computeMu(int imin,int imax,const xvec_t &xp, const yvec_t &yp)
       d=LOSS::dloss(s,y);
       mu.add(x,d);
       saved_d[i-saved_dimin]=d;
+      numGradEvals++;
     }
   mu.scale(1.0/(imax-imin+1));
 }
@@ -199,6 +204,10 @@ SvmSvrg::train(int imin, int imax, int m, double eta, const xvec_t &xp, const yv
   cout << " wBias=" << wBias;
 #endif
   cout << endl;
+  // Writing to file                                                            
+  FILE *f = fopen(dataFile, "a");
+  fprintf(f, "\n%lf", (numGradEvals*1.0/(imax-imin+1)));
+  fclose(f);
 }
 
 void
@@ -227,6 +236,10 @@ SvmSvrg::test(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char
        << " Cost=" << setprecision(12) << cost 
        << " Misclassification=" << setprecision(4) << 100 * nerr << "%." 
        << endl;
+  // Writing to file                                                            
+  FILE *f = fopen(dataFile, "a");
+  fprintf(f, "\t%lf\t%lf\t%lf", loss, cost, (100*nerr));
+  fclose(f);
 }
 
 /// Perform one epoch with fixed eta and return cost
@@ -394,6 +407,11 @@ int main(int argc, const char **argv)
   // train
   int m= (imax-imin+1) / 10;
   cout << "Using update freq m = "<< m << endl;
+
+  // Writing to file                                                            
+  FILE *f = fopen(svm.dataFile, "w");
+  fprintf(f, "numGradEvals\tTrainLoss\tTrainCost\tTrainErr\tTestLoss\tTestCost\tTestErr");
+  fclose(f);
 
   for(int i=0; i<epochs; i++)
     {

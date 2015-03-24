@@ -94,6 +94,8 @@ public:
   double evaluateEta(int imin, int imax, const xvec_t &x, const yvec_t &y, double eta);
   void determineEta(int imin, int imax, const xvec_t &x, const yvec_t &y);
   void setEta(double x) { eta=x; }
+  const char* dataFile;	
+
 private:
   double  lambda;
   double  eta;
@@ -108,13 +110,16 @@ private:
   double  wBias;   // bias
   double  gBias;   // bias gradient sum
   double  t;       // iteration counter
+  int numGradEvals;
+  
 };
 
 /// Constructor
 SvmSag::SvmSag(int dim, double lambda, double eta)
   : lambda(lambda), eta(eta), 
     w(dim), g(dim), m(0), wa(1), wb(0), 
-    sdimin(0), sdimax(-1), wBias(0), gBias(0), t(0)
+    sdimin(0), sdimax(-1), wBias(0), gBias(0), t(0), 
+    numGradEvals(0), dataFile("sag.dat")
 {
 }
 
@@ -171,6 +176,7 @@ SvmSag::trainSgdOne(const SVector &x, double y, double eta, int i)
     sd[i-sdimin] = d;
   if (d != 0)
     w.add(x, eta * d / wa);
+  numGradEvals++;
 #if BIAS
   double etab = eta * 0.01;
 #if REGULARIZED_BIAS
@@ -202,6 +208,7 @@ SvmSag::trainOne(const SVector &x, double y, double eta, int i)
   wb = wb * decay + eta / m;
   if (wa < 1e-5)
     renorm();
+  numGradEvals++;
   // same for the bias
 #if BIAS
   double etab = eta * 0.01;
@@ -236,6 +243,10 @@ SvmSag::trainInit(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const 
   cout << " wBias=" << wBias;
 #endif
   cout << endl;
+  // Writing to file
+  FILE *f = fopen(dataFile, "a");
+  fprintf(f, "\n%lf", (numGradEvals*1.0/(imax-imin+1)));
+  fclose(f);
 }
 
 
@@ -256,10 +267,16 @@ SvmSag::trainSag(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const c
       t += 1;
     }
   cout << prefix << setprecision(6) << "wNorm=" << wnorm();
+  cout << prefix << " numGradEvals/n=" << (numGradEvals*1.0/(imax-imin+1));
 #if BIAS
   cout << " wBias=" << wBias;
 #endif
   cout << endl;
+  // Writing to file
+  FILE *f = fopen(dataFile, "a");
+  fprintf(f, "\n%lf", (numGradEvals*1.0/(imax-imin+1)));
+  fclose(f);
+
 }
 
 /// Perform a test pass
@@ -279,7 +296,13 @@ SvmSag::test(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char 
        << "Loss=" << setprecision(12) << loss
        << " Cost=" << setprecision(12) << cost 
        << " Misclassification=" << setprecision(4) << 100 * nerr << "%." 
-       << endl;
+       << endl;  
+
+  // Writing to file  
+  FILE *f = fopen(dataFile, "a");
+  fprintf(f, "\t%lf\t%lf\t%lf", loss, cost, (100*nerr));
+  fclose(f);
+
 }
 
 /// Perform one epoch with fixed eta and return cost
@@ -473,6 +496,12 @@ int main(int argc, const char **argv)
   else
     svm.determineEta(smin, smax, xtrain, ytrain);
   timer.stop();
+
+  // Writing to file  
+  FILE *f = fopen(svm.dataFile, "w");
+  fprintf(f, "numGradEvals\tTrainLoss\tTrainCost\tTrainErr\tTestLoss\tTestCost\tTestErr");
+  fclose(f);
+  
   // train
   for(int i=0; i<epochs; i++)
     {

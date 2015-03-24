@@ -27,3 +27,5 @@ SAG/SGD_logistic_BLAS.mexa64
 SAG/sampleDiscrete_cumsumC.mexa64
 bin
 data/
+*.o
+*.dat

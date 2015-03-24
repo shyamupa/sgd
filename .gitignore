@@ -9,6 +9,7 @@ svm/prep_webspam
 svm/svmasgd
 svm/svmsag
 svm/svmsgd
+svm/svmsvrg
 SAG/ASGD_logistic.mexa64
 SAG/ASGD_logistic_BLAS.mexa64
 SAG/DCA_logistic.mexa64

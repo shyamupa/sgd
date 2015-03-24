@@ -32,6 +32,20 @@
 #include "loss.h"
 #include "data.h"
 
+#if HAS_UNIFORMINTDISTRIBUTION
+# include <random>
+typedef std::uniform_int_distribution<int> uniform_int_generator;
+#elif HAS_UNIFORMINT
+# include <tr1/random>
+typedef std::tr1::uniform_int<int> uniform_int_generator;
+#else
+struct uniform_int_generator { 
+  int imin, imax; 
+  uniform_int_generator(int imin, int imax) : imin(imin),imax(imax) {}
+  int operator()() { return imin + std::rand() % (imax - imin + 1); }
+};
+#endif
+
 using namespace std;
 
 // ---- Loss function
@@ -56,16 +70,18 @@ using namespace std;
 
 // ---- Plain stochastic gradient descent
 
-class SvmSgd
+class SvmSvrg
 {
 public:
-  SvmSgd(int dim, double lambda, double eta0  = 0);
+  SvmSvrg(int dim, double lambda, double eta0  = 0);
+  void init(int imin,int imax);
   void renorm();
   double wnorm();
   double testOne(const SVector &x, double y, double *ploss, double *pnerr);
-  void trainOne(const SVector &x, double y, double eta);
+  void trainOne(const SVector &x, double y, double eta,int i);
+  void computeMu(int imin,int imax,const xvec_t &xp, const yvec_t &yp);
 public:
-  void train(int imin, int imax, const xvec_t &x, const yvec_t &y, const char *prefix = "");
+  void train(int imin, int imax,int m, double eta, const xvec_t &x, const yvec_t &y, const char *prefix = "");
   void test(int imin, int imax, const xvec_t &x, const yvec_t &y, const char *prefix = "");
 public:
   double evaluateEta(int imin, int imax, const xvec_t &x, const yvec_t &y, double eta);
@@ -74,35 +90,30 @@ private:
   double  lambda;
   double  eta0;
   FVector w;
-  double  wDivisor;
+  FVector wt;			// w tilde in svrg paper
+  FVector mu;			// mu from same paper
+  FVector saved_d;		// saved_d wrt wt
+  int saved_dimin;
+  int saved_dimax;
   double  wBias;
+  double  wtBias;
   double  t;
 };
 
 /// Constructor
-SvmSgd::SvmSgd(int dim, double lambda, double eta0)
+SvmSvrg::SvmSvrg(int dim, double lambda, double eta0)
   : lambda(lambda), eta0(eta0), 
-    w(dim), wDivisor(1), wBias(0),
+    w(dim), wt(dim), mu(dim),
+    saved_dimin(0), saved_dimax(-1), wBias(0),wtBias(0),
     t(0)
 {
 }
 
-/// Renormalize the weights
-void
-SvmSgd::renorm()
-{
-  if (wDivisor != 1.0)
-    {
-      w.scale(1.0 / wDivisor);
-      wDivisor = 1.0;
-    }
-}
-
 /// Compute the norm of the weights
 double
-SvmSgd::wnorm()
+SvmSvrg::wnorm()
 {
-  double norm = dot(w,w) / wDivisor / wDivisor;
+  double norm = dot(w,w);
 #if REGULARIZED_BIAS
   norm += wBias * wBias;
 #endif
@@ -111,9 +122,9 @@ SvmSgd::wnorm()
 
 /// Compute the output for one example.
 double
-SvmSgd::testOne(const SVector &x, double y, double *ploss, double *pnerr)
+SvmSvrg::testOne(const SVector &x, double y, double *ploss, double *pnerr)
 {
-  double s = dot(w,x) / wDivisor + wBias;
+  double s = dot(w,x) + wBias;
   if (ploss)
     *ploss += LOSS::loss(s, y);
   if (pnerr)
@@ -123,16 +134,21 @@ SvmSgd::testOne(const SVector &x, double y, double *ploss, double *pnerr)
 
 /// Perform one iteration of the SGD algorithm with specified gains
 void
-SvmSgd::trainOne(const SVector &x, double y, double eta)
+SvmSvrg::trainOne(const SVector &x, double y, double eta, int i)
 {
-  double s = dot(w,x) / wDivisor + wBias;
+  double s = dot(w,x)  + wBias;
   // update for regularization term
-  wDivisor = wDivisor / (1 - eta * lambda);
-  if (wDivisor > 1e5) renorm();	// accumulated a lot, refresh
   // update for loss term
   double d = LOSS::dloss(s, y);
+  double dt;
   if (d != 0)
-    w.add(x, eta * d * wDivisor); // w = w + eta*d*wDivisor(-grad)
+    {
+      w.scale(1-eta*lambda);	// w = (1-eta*lambda)w
+      w.add(x, eta * d); 	// usual
+      dt=saved_d[i-saved_dimin]; // fetch the loss computed by wt
+      w.add(x, - eta * dt);	// first correction term
+      w.add(mu,eta);		// mu term
+    }
   // same for the bias
 #if BIAS
   double etab = eta * 0.01;
@@ -143,20 +159,40 @@ SvmSgd::trainOne(const SVector &x, double y, double eta)
 #endif
 }
 
-
+/// computes 1/n * sum_i dL(wTx_i),y_i)/dw
+void
+SvmSvrg::computeMu(int imin,int imax,const xvec_t &xp, const yvec_t &yp)
+{
+  mu=FVector::FVector(mu.size()); // reset
+  double s,d;
+  for (int i=imin; i<=imax; i++)
+    {
+      SVector x=xp.at(i);
+      double y=yp.at(i);
+      s=dot(wt,x) + wtBias;
+      d=LOSS::dloss(s,y);
+      mu.add(x,d);
+      saved_d[i-saved_dimin]=d;
+    }
+  mu.scale(imax-imin+1);
+}
 /// Perform a training epoch
 void 
-SvmSgd::train(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char *prefix)
+SvmSvrg::train(int imin, int imax, int m, double eta, const xvec_t &xp, const yvec_t &yp, const char *prefix)
 {
   cout << prefix << "Training on [" << imin << ", " << imax << "]." << endl;
   assert(imin <= imax);
   assert(eta0 > 0);
-  for (int i=imin; i<=imax; i++)
+  // compute Mu, also save f'(wt) for all i
+  computeMu(imin,imax,xp,yp);
+  w=wt.slice(0,wt.size()-1); 			// w_0 = w_t
+  uniform_int_generator generator(imin, imax);
+  for (int i=0; i<m; i++)
     {
-      double eta = eta0 / (1 + lambda * eta0 * t);
-      trainOne(xp.at(i), yp.at(i), eta);
-      t += 1;
+      int ii = generator(); 
+      trainOne(xp.at(ii), yp.at(ii), eta,ii);
     }
+  wt=w.slice(0,w.size()-1);				// option I
   cout << prefix << setprecision(6) << "wNorm=" << wnorm();
 #if BIAS
   cout << " wBias=" << wBias;
@@ -164,9 +200,17 @@ SvmSgd::train(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char
   cout << endl;
 }
 
+void
+SvmSvrg::init(int imin,int imax)
+{
+  saved_d.resize(imax - imin + 1);
+  saved_dimin = imin;
+  saved_dimax = imax;
+}
+
 /// Perform a test pass
 void 
-SvmSgd::test(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char *prefix)
+SvmSvrg::test(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char *prefix)
 {
   cout << prefix << "Testing on [" << imin << ", " << imax << "]." << endl;
   assert(imin <= imax);
@@ -187,12 +231,12 @@ SvmSgd::test(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char 
 /// Perform one epoch with fixed eta and return cost
 
 double 
-SvmSgd::evaluateEta(int imin, int imax, const xvec_t &xp, const yvec_t &yp, double eta)
+SvmSvrg::evaluateEta(int imin, int imax, const xvec_t &xp, const yvec_t &yp, double eta)
 {
-  SvmSgd clone(*this); // take a copy of the current state
+  SvmSvrg clone(*this); // take a copy of the current state
   assert(imin <= imax);
   for (int i=imin; i<=imax; i++)
-    clone.trainOne(xp.at(i), yp.at(i), eta);
+    clone.trainOne(xp.at(i), yp.at(i), eta,i);
   double loss = 0;
   double cost = 0;
   for (int i=imin; i<=imax; i++)
@@ -204,7 +248,7 @@ SvmSgd::evaluateEta(int imin, int imax, const xvec_t &xp, const yvec_t &yp, doub
 }
 
 void 
-SvmSgd::determineEta0(int imin, int imax, const xvec_t &xp, const yvec_t &yp)
+SvmSvrg::determineEta0(int imin, int imax, const xvec_t &xp, const yvec_t &yp)
 {
   const double factor = 2.0;
   double loEta = 1;
@@ -355,7 +399,9 @@ int main(int argc, const char **argv)
   int imax = xtrain.size() - 1;
   int tmin = 0;
   int tmax = xtest.size() - 1;
-  SvmSgd svm(dims, lambda);
+  SvmSvrg svm(dims, lambda);
+
+  svm.init(imin,imax);
   Timer timer;
   // determine eta0 using sample
   int smin = 0;
@@ -364,11 +410,16 @@ int main(int argc, const char **argv)
   svm.determineEta0(smin, smax, xtrain, ytrain);
   timer.stop();
   // train
+  int m= (imax-imin+1) / 100;
+  cout << "Using update freq m = "<< m << endl;
+
+  double eta=0.025;
+
   for(int i=0; i<epochs; i++)
     {
       cout << "--------- Epoch " << i+1 << "." << endl;
       timer.start();
-      svm.train(imin, imax, xtrain, ytrain);
+      svm.train(imin, imax,m,eta, xtrain, ytrain);
       timer.stop();
       cout << "Total training time " << setprecision(6) 
            << timer.elapsed() << " secs." << endl;

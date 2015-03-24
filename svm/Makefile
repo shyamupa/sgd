@@ -22,7 +22,7 @@ OPTS=-g -O2
 CXXFLAGS= ${OPTS} ${OPT} -Wall -I$L
 LIBS = -lz -lm
 
-PROGRAMS = prep_rcv1 prep_alpha prep_webspam make_txt svmsgd svmasgd svmsag
+PROGRAMS = prep_rcv1 prep_alpha prep_webspam make_txt svmsgd svmasgd svmsag svmsvrg
 OBJS = vectors.o gzstream.o timer.o
 INCS = $L/vectors.h $L/gzstream.h $L/timer.h $L/wrapper.h $L/assert.h
 
@@ -65,6 +65,9 @@ svmasgd.o: svmasgd.cpp data.h loss.h ${INCS}
 svmsag.o: svmsag.cpp data.h loss.h ${INCS}
 	${CXX} ${CXXFLAGS} -c -o $@ svmsag.cpp
 
+svmsvrg.o: svmsvrg.cpp data.h loss.h ${INCS}
+	${CXX} ${CXXFLAGS} -c -o $@ svmsvrg.cpp
+
 prep_rcv1: prep_rcv1.o ${OBJS}
 	${CXX} ${CXXFLAGS} -o $@ prep_rcv1.o ${OBJS} ${LIBS}
 
@@ -85,6 +88,9 @@ svmasgd: svmasgd.o data.o ${OBJS}
 
 svmsag: svmsag.o data.o ${OBJS}
 	${CXX} ${CXXFLAGS} -o $@ svmsag.o data.o ${OBJS} ${LIBS}
+
+svmsvrg: svmsvrg.o data.o ${OBJS}
+	${CXX} ${CXXFLAGS} -o $@ svmsvrg.o data.o ${OBJS} ${LIBS}
 
 
 

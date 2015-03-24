@@ -128,11 +128,11 @@ SvmSgd::trainOne(const SVector &x, double y, double eta)
   double s = dot(w,x) / wDivisor + wBias;
   // update for regularization term
   wDivisor = wDivisor / (1 - eta * lambda);
-  if (wDivisor > 1e5) renorm();
+  if (wDivisor > 1e5) renorm();	// accumulated a lot, refresh
   // update for loss term
   double d = LOSS::dloss(s, y);
   if (d != 0)
-    w.add(x, eta * d * wDivisor);
+    w.add(x, eta * d * wDivisor); // w = w + eta*d*wDivisor(-grad)
   // same for the bias
 #if BIAS
   double etab = eta * 0.01;

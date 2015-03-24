@@ -1,3 +1,5 @@
+*.o
+*.gz
 crf/crfasgd
 crf/crfsgd
 svm/make_txt

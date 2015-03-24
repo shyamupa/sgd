@@ -162,7 +162,7 @@ void
 SvmSag::trainSgdOne(const SVector &x, double y, double eta, int i)
 {
   assert(wb == 0);
-  double s = dot(w,x) * wa + wBias;
+  double s = dot(w,x) * wa + wBias; 
   wa = wa * (1 - eta * lambda);
   if (wa < 1e-5) 
     renorm();
@@ -186,13 +186,13 @@ void
 SvmSag::trainOne(const SVector &x, double y, double eta, int i)
 {
   // compute loss
-  double s = dot(w,x) * wa + wBias;
+  double s = dot(w,x) * wa + wBias; // here wa is 1/WDivisor from SGD
   if (wb != 0)
     s += dot(g,x) * wb;
   // compute dloss
   double d = LOSS::dloss(s, y);
-  double od = sd[i - sdimin];
-  sd[i - sdimin] = d;
+  double od = sd[i - sdimin];	// old acc. loss so far
+  sd[i - sdimin] = d;		// new grad to overwrite
   d = d - od;
   // update weights
   g.add(x, d);

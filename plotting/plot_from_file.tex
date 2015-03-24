@@ -16,7 +16,8 @@
     ]
     \addplot table [x=numGradEvals, y=TrainCost] {../svm/sgd.dat};
     \addplot table [x=numGradEvals, y=TrainCost] {../svm/sag.dat};
-    \legend{sgd,sag};
+    \addplot table [x=numGradEvals, y=TrainCost] {../svm/svrg.dat};
+    \legend{sgd,sag,svrg};
   \end{axis}
 \end{tikzpicture}
 

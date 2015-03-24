@@ -98,11 +98,11 @@ private:
   double  lambda;
   double  eta;
   FVector w;       // weights
-  FVector g;       // gradient sum
+  FVector g;       // gradient sum; this is d in schmidt page 10
   int     m;       // gradient count
   double  wa;      // actual w is wa*w + wb*g
   double  wb;      // initially wa=1, wb=0
-  FVector sd;      // saved dloss
+  FVector sd;      // saved dloss; this is y_i in schmidt page 10
   int     sdimin;  // low index
   int     sdimax;  // high index
   double  wBias;   // bias
@@ -190,12 +190,12 @@ SvmSag::trainOne(const SVector &x, double y, double eta, int i)
   if (wb != 0)
     s += dot(g,x) * wb;
   // compute dloss
-  double d = LOSS::dloss(s, y);
+  double d = LOSS::dloss(s, y);	// new loss
   double od = sd[i - sdimin];	// old acc. loss so far
-  sd[i - sdimin] = d;		// new grad to overwrite
-  d = d - od;
+  sd[i - sdimin] = d;		// new grad to overwrite old
+  d = d - od;			// remove trace of old grad
   // update weights
-  g.add(x, d);
+  g.add(x, d);			//  g + (di_new - di_old)*x
   w.add(x, - d * wb / wa);
   double decay = 1 - lambda * eta;
   wa = wa * decay;

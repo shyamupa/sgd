@@ -70,6 +70,8 @@ public:
 public:
   double evaluateEta(int imin, int imax, const xvec_t &x, const yvec_t &y, double eta);
   void determineEta0(int imin, int imax, const xvec_t &x, const yvec_t &y);
+  const char* dataFile;
+	
 private:
   double  lambda;
   double  eta0;
@@ -77,13 +79,14 @@ private:
   double  wDivisor;
   double  wBias;
   double  t;
+  int numGradEvals;
 };
 
 /// Constructor
 SvmSgd::SvmSgd(int dim, double lambda, double eta0)
   : lambda(lambda), eta0(eta0), 
     w(dim), wDivisor(1), wBias(0),
-    t(0)
+    t(0), numGradEvals(0), dataFile("sgd.dat")
 {
 }
 
@@ -130,6 +133,7 @@ SvmSgd::trainOne(const SVector &x, double y, double eta)
   wDivisor = wDivisor / (1 - eta * lambda);
   if (wDivisor > 1e5) renorm();	// accumulated a lot, refresh
   // update for loss term
+  numGradEvals++;
   double d = LOSS::dloss(s, y);
   if (d != 0)
     w.add(x, eta * d * wDivisor); // w = w + eta*d*wDivisor(-grad)
@@ -158,10 +162,16 @@ SvmSgd::train(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char
       t += 1;
     }
   cout << prefix << setprecision(6) << "wNorm=" << wnorm();
+  cout << prefix << " numGradEvals/n=" << (numGradEvals*1.0/(imax-imin+1));
 #if BIAS
   cout << " wBias=" << wBias;
 #endif
   cout << endl;
+  // Writing to file
+  FILE *f = fopen(dataFile, "a");
+  fprintf(f, "\n%lf", (numGradEvals*1.0/(imax-imin+1)));
+  fclose(f);
+  
 }
 
 /// Perform a test pass
@@ -182,6 +192,10 @@ SvmSgd::test(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char 
        << " Cost=" << setprecision(12) << cost 
        << " Misclassification=" << setprecision(4) << 100 * nerr << "%." 
        << endl;
+  // Writing to file
+  FILE *f = fopen(dataFile, "a");
+  fprintf(f, "\t%lf\t%lf\t%lf", loss, cost, (100*nerr));
+  fclose(f);
 }
 
 /// Perform one epoch with fixed eta and return cost
@@ -363,6 +377,12 @@ int main(int argc, const char **argv)
   timer.start();
   svm.determineEta0(smin, smax, xtrain, ytrain);
   timer.stop();
+
+  // Writing to file
+  FILE *f = fopen(svm.dataFile, "w");
+  fprintf(f, "numGradEvals\tTrainLoss\tTrainCost\tTrainErr\tTestLoss\tTestCost\tTestErr");
+  fclose(f);
+
   // train
   for(int i=0; i<epochs; i++)
     {

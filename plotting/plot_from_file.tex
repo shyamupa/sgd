@@ -1,0 +1,23 @@
+\documentclass{article}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.8}
+
+\begin{document}
+
+\begin{tikzpicture} % plotting with data in columns
+  \begin{axis}[
+      xlabel=Loss,
+      ylabel=grad evals / n,
+      legend style={
+        at={(0.5,-0.18)},       % 0.5 times xmin,xmax and -0.18 times ymin,ymax, think affine comb.
+        anchor=north,
+        legend columns=-1       % no columns, only rows
+      },
+    ]
+    \addplot table [x=numGradEvals, y=TrainCost] {../svm/sgd.dat};
+    \addplot table [x=numGradEvals, y=TrainCost] {../svm/sag.dat};
+    \legend{sgd,sag};
+  \end{axis}
+\end{tikzpicture}
+
+\end{document}

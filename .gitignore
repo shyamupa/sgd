@@ -29,3 +29,5 @@ bin
 data/
 *.o
 *.log
+*.aux
+*.pdf

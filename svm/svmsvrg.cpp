@@ -181,9 +181,10 @@ SvmSvrg::train(int imin, int imax, int m, double eta, const xvec_t &xp, const yv
   cout << prefix << "Training on [" << imin << ", " << imax << "]." << endl;
   assert(imin <= imax);
   // assert(eta0 > 0);
+
   // compute Mu, also save f'(wt) for all i
   computeMu(imin,imax,xp,yp);
-  w=wt.slice(0,wt.size()-1); 			// w_0 = w_t
+  w=wt.slice(0,wt.size()-1);	// w_0 = w_t
   cout << "norm " << wnorm() << endl;
   cout << "decay " << (1-eta*lambda) << endl;
   uniform_int_generator generator(imin, imax);
@@ -192,7 +193,7 @@ SvmSvrg::train(int imin, int imax, int m, double eta, const xvec_t &xp, const yv
       int ii = generator(); 
       trainOne(xp.at(ii), yp.at(ii), eta,ii);
     }
-  wt=w.slice(0,w.size()-1);				// option I
+  wt=w.slice(0,w.size()-1);	// option I
   cout << prefix << setprecision(6) << "wNorm=" << wnorm();
 #if BIAS
   cout << " wBias=" << wBias;
@@ -256,7 +257,7 @@ bool normalize = true;
 double lambda = 1e-5;
 int epochs = 5;
 int maxtrain = -1;
-
+double eta=0.025;
 
 void
 usage(const char *progname)
@@ -271,6 +272,8 @@ usage(const char *progname)
        << "Regularization parameter" << DEF(lambda) << endl
        << NAM("-epochs n")
        << "Number of training epochs" << DEF(epochs) << endl
+       << NAM("-eta e")
+       << "Constant step length" << DEF(eta) << endl
        << NAM("-dontnormalize")
        << "Do not normalize the L2 norm of patterns." << endl
        << NAM("-maxtrain n")
@@ -310,6 +313,11 @@ parse(int argc, const char **argv)
               epochs = atoi(argv[++i]);
               assert(epochs>0 && epochs<1e6);
             }
+	  else if (opt == "eta" && i+1<argc)
+            {
+              eta = atof(argv[++i]);
+              assert(eta>0 && eta*lambda<1);
+            }
           else if (opt == "dontnormalize")
             {
               normalize = false;
@@ -337,6 +345,7 @@ config(const char *progname)
   cout << "# Running: " << progname;
   cout << " -lambda " << lambda;
   cout << " -epochs " << epochs;
+  cout << " -eta " << eta;
   if (! normalize) cout << " -dontnormalize";
   if (maxtrain > 0) cout << " -maxtrain " << maxtrain;
   cout << endl;
@@ -385,8 +394,6 @@ int main(int argc, const char **argv)
   // train
   int m= (imax-imin+1) / 10;
   cout << "Using update freq m = "<< m << endl;
-
-  double eta=0.025;
 
   for(int i=0; i<epochs; i++)
     {

@@ -28,3 +28,4 @@ SAG/sampleDiscrete_cumsumC.mexa64
 bin
 data/
 *.o
+*.dat

@@ -102,7 +102,7 @@ private:
   int     m;       // gradient count
   double  wa;      // actual w is wa*w + wb*g
   double  wb;      // initially wa=1, wb=0
-  FVector sd;      // saved dloss; this is y_i in schmidt page 10
+  FVector sd;      // saved dloss; this stores scalar f'(wTxi) for all i. f'(wTxi)*x is gradient
   int     sdimin;  // low index
   int     sdimax;  // high index
   double  wBias;   // bias
@@ -188,14 +188,14 @@ SvmSag::trainOne(const SVector &x, double y, double eta, int i)
   // compute loss
   double s = dot(w,x) * wa + wBias; // here wa is 1/WDivisor from SGD
   if (wb != 0)
-    s += dot(g,x) * wb;
+    s += dot(g,x) * wb;		// s contains w^Tx now
   // compute dloss
-  double d = LOSS::dloss(s, y);	// new loss
-  double od = sd[i - sdimin];	// old acc. loss so far
-  sd[i - sdimin] = d;		// new grad to overwrite old
-  d = d - od;			// remove trace of old grad
+  double d = LOSS::dloss(s, y);	// new loss, this is dLoss(f,y)/df where f is w^Tx
+  double od = sd[i - sdimin];	// old loss on this example
+  sd[i - sdimin] = d;		// new loss to overwrite old
+  d = d - od;			// remove trace of old loss
   // update weights
-  g.add(x, d);			//  g + (di_new - di_old)*x
+  g.add(x, d);			//  g + (di_new - di_old)*x; only update the accumulated grad part
   w.add(x, - d * wb / wa);
   double decay = 1 - lambda * eta;
   wa = wa * decay;

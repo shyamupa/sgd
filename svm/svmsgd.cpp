@@ -32,6 +32,27 @@
 #include "loss.h"
 #include "data.h"
 
+#if __cplusplus >= 201103L
+# define HAS_UNIFORMINTDISTRIBUTION 1
+#elif defined(__GXX_EXPERIMENTAL_CXX0X__)
+# define HAS_UNIFORMINT 1
+#endif
+
+#if HAS_UNIFORMINTDISTRIBUTION
+# include <random>
+typedef std::uniform_int_distribution<int> uniform_int_generator;
+#elif HAS_UNIFORMINT
+# include <tr1/random>
+typedef std::tr1::uniform_int<int> uniform_int_generator;
+#else
+struct uniform_int_generator {
+	int imin, imax;
+	uniform_int_generator(int imin, int imax) : imin(imin),imax(imax) {}
+	int operator()() { return imin + std::rand() % (imax - imin + 1); }
+};
+#endif
+
+
 using namespace std;
 
 // ---- Loss function
@@ -53,6 +74,7 @@ using namespace std;
 #ifndef REGULARIZED_BIAS
 # define REGULARIZED_BIAS 0
 #endif
+
 
 // ---- Plain stochastic gradient descent
 
@@ -155,10 +177,14 @@ SvmSgd::train(int imin, int imax, const xvec_t &xp, const yvec_t &yp, const char
   cout << prefix << "Training on [" << imin << ", " << imax << "]." << endl;
   assert(imin <= imax);
   assert(eta0 > 0);
+  uniform_int_generator generator(imin, imax);
   for (int i=imin; i<=imax; i++)
     {
-      double eta = eta0 / (1 + lambda * eta0 * t);
-      trainOne(xp.at(i), yp.at(i), eta);
+      // Made step size constant	    
+      double eta = 0.1; // eta0 / (1 + lambda * eta0 * t);
+      // Randomly picking example
+      int ii = generator();
+      trainOne(xp.at(ii), yp.at(ii), eta);
       t += 1;
     }
   cout << prefix << setprecision(6) << "wNorm=" << wnorm();

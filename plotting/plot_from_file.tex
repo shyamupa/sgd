@@ -6,10 +6,14 @@
 
 \begin{tikzpicture} % plotting with data in columns
   \begin{axis}[
+      /pgf/number format/.cd,fixed,precision=5,
+      ymin=0.312, 
+      ymax=0.316, 
+      clip=true,
       xlabel=Loss,
       ylabel=grad evals / n,
       legend style={
-        at={(0.5,-0.18)},       % 0.5 times xmin,xmax and -0.18 times ymin,ymax, think affine comb.
+        at={(1.0,-1.18)},       % 0.5 times xmin,xmax and -0.18 times ymin,ymax, think affine comb.
         anchor=north,
         legend columns=-1       % no columns, only rows
       },
